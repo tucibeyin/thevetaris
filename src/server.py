@@ -2,9 +2,10 @@ import http.server
 import socketserver
 import json
 import os
+import re
 import mimetypes
 from http import cookies
-from urllib.parse import urlparse, parse_qs, unquote
+from urllib.parse import urlparse, parse_qs
 import database  # Import our database module
 from datetime import datetime, date
 
@@ -391,22 +392,49 @@ class VetarisHandler(http.server.SimpleHTTPRequestHandler):
 
         # Serve Static Files
         file_path_str = clean_path if clean_path != '/' else '/index.html'
-        file_path_str = unquote(file_path_str)  # %C3%9C → Ü gibi Türkçe karakter çözümlemesi
 
         # Construct full path to the file in 'public' directory
         file_path = os.path.join(DIRECTORY, file_path_str.lstrip('/'))
 
         # Check if file exists
-        if os.path.exists(file_path) and os.path.isfile(file_path):
-            mime_type, _ = mimetypes.guess_type(file_path)
+        if not (os.path.exists(file_path) and os.path.isfile(file_path)):
+            self.send_error(404, "File not found")
+            return
+
+        mime_type, _ = mimetypes.guess_type(file_path)
+        file_size = os.path.getsize(file_path)
+        range_header = self.headers.get('Range')
+
+        if range_header:
+            # Mobil tarayıcılar video için Range Request gönderir (RFC 7233)
+            match = re.match(r'bytes=(\d*)-(\d*)', range_header)
+            if match:
+                start = int(match.group(1)) if match.group(1) else 0
+                end = int(match.group(2)) if match.group(2) else file_size - 1
+                end = min(end, file_size - 1)
+                length = end - start + 1
+
+                self.send_response(206)
+                if mime_type:
+                    self.send_header('Content-Type', mime_type)
+                self.send_header('Content-Range', f'bytes {start}-{end}/{file_size}')
+                self.send_header('Content-Length', str(length))
+                self.send_header('Accept-Ranges', 'bytes')
+                self.end_headers()
+                with open(file_path, 'rb') as f:
+                    f.seek(start)
+                    self.wfile.write(f.read(length))
+            else:
+                self.send_error(400, "Invalid Range header")
+        else:
             self.send_response(200)
             if mime_type:
-                self.send_header('Content-type', mime_type)
+                self.send_header('Content-Type', mime_type)
+            self.send_header('Content-Length', str(file_size))
+            self.send_header('Accept-Ranges', 'bytes')
             self.end_headers()
             with open(file_path, 'rb') as f:
                 self.wfile.write(f.read())
-        else:
-            self.send_error(404, "File not found")
 
     def log_message(self, format, *args):
         # Override to log to console

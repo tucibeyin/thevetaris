@@ -1,20 +1,22 @@
 [Unit]
 Description=Vetaris E-Commerce Python Server
-After=network.target
+After=network.target postgresql.service
+Requires=postgresql.service
 
 [Service]
-# Kullanıcı adı ve grubu VPS'teki duruma göre değiştirebilirsiniz (örn: debian veya www-data)
-User=debian
-Group=debian
+# VPS'teki kullanıcı (deploy sırasında proje dizininin sahibi)
+User=tucibeyin
+Group=tucibeyin
 
-# Projenin bulunduğu dizin (VPS'te repo nereye çekildiyse)
-WorkingDirectory=/var/www/vetaris.com
+# Projenin bulunduğu dizin
+WorkingDirectory=/var/www/thevetaris.com
 
-# Python sunucusunu başlatma komutu
-ExecStart=/var/www/vetaris.com/venv/bin/python3 src/server.py
+# Python sunucusunu başlatma komutu (venv içindeki python)
+ExecStart=/var/www/thevetaris.com/venv/bin/python3 src/server.py
 
 # Çökme durumunda otomatik yeniden başlat
 Restart=always
+RestartSec=3
 
 [Install]
 WantedBy=multi-user.target

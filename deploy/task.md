@@ -237,17 +237,10 @@ Durum işaretleri: `[ ]` bekliyor · `[~]` devam ediyor · `[x]` tamam · `[!]` 
   `certbot renew --dry-run` → **thevetaris.com (success)**. Otomatik yenileme çalışıyor.
   Kalan küçük kontrol: `curl -sI http://thevetaris.com` → 301 (kozmetik).
 
-- [!] **Yan bulgu — yeni VPS'te 10 ARTIK renewal conf** — `certbot renew --dry-run` diğer 10
-  domain için FAIL verdi (asiridusuksorgu, teqlif, mottosoft, tucibeyin, palplanss...).
-  `/etc/letsencrypt` kopyalanırken gelmişler, DNS'leri hâlâ eski VPS'te. Vetaris'i ETKİLEMEZ.
-  `certbot.timer` günde 2× hata loglar + uyarı maili gelebilir. Opsiyonel temizlik:
-  ```bash
-  for d in asiridusuksorgu.com deneme.tucibeyin.com duvardaiz.com factnetworking.io \
-           mottosoft.com nazar.aracabak.com palplanss.com tucibeyin.com; do
-    sudo certbot delete --cert-name $d --non-interactive
-  done
-  # teqlif.com / live.teqlif.com → teqlif bu VPS'te; DOKUNMA, DNS'i gelince düzelir.
-  ```
+- [x] **Yan bulgu — yeni VPS'te 10 ARTIK renewal conf** — `certbot renew --dry-run` diğer 10
+  domain için FAIL veriyor (DNS'leri hâlâ eski VPS'te). Vetaris'i ETKİLEMEZ.
+  **Karar: temizlik YAPILMAYACAK** — o siteler de yeni VPS'e taşınacak, conf'lar lazım olacak.
+  Her site taşındıkça kendi FAIL'i düzelir.
 
 ---
 
@@ -261,24 +254,21 @@ Durum işaretleri: `[ ]` bekliyor · `[~]` devam ediyor · `[x]` tamam · `[!]` 
 
 ---
 
-## BÖLÜM L — Eski VPS'i Kapatma
+## BÖLÜM L — Eski VPS'te thevetaris'i Kaldırma
 
-- [ ] **L1. (Geçişten 48-72 saat sonra, her şey stabilse)** Son `pg_dump` al, güvenli yere sakla.
-  ```bash
-  sudo -u postgres pg_dump -Fc vetaris -f ~/vetaris-final-$(date +%F).dump
-  ```
-- [ ] **L2.** Eski VPS'te SADECE vetaris'i durdur — **nginx'i DURDURMA** (diğer 10+ site kullanıyor):
+- [x] **L1. Final `pg_dump`** — GEREK YOK. Site trafiği sıfır, geçiş penceresinde yazma olmadı.
+  (Gerekirse: `sudo -u postgres pg_dump -Fc vetaris -f ~/vetaris-final.dump`)
+
+- [ ] **L2. (Hazır olunca)** Eski VPS'te SADECE vetaris'i kaldır — **nginx'i DURDURMA**:
   ```bash
   sudo systemctl disable --now vetaris.service
   sudo rm /etc/nginx/sites-enabled/thevetaris
   sudo nginx -t && sudo systemctl reload nginx
-  # opsiyonel temizlik: sudo certbot delete --cert-name thevetaris.com
-  #                     sudo -u postgres dropdb vetaris   (final dump aldıktan SONRA)
-  #                     sudo rm -rf /var/www/thevetaris.com
+  # sonra istege bagli: sudo -u postgres dropdb vetaris ; sudo rm -rf /var/www/thevetaris.com
+  # certbot: sudo certbot delete --cert-name thevetaris.com  (eski VPS'te; yeni VPS'te KALSIN)
   ```
-- [ ] **L3.** ~1 hafta bekle → sorun yoksa eski VPS'teki vetaris artıklarını (venv, dizin) sil.
-  (Eski VPS'in kendisi imha EDİLMEZ — diğer siteler orada.)
-- [ ] **L4.** Squarespace DNS'te sadece thevetaris A/`www` kayıtlarının TTL'ini normale (3600) çıkar.
+
+- [ ] **L3.** TTL'i normale çıkarmak istersen Squarespace'te apex A → 3600 (opsiyonel, zaten 3600).
 
 ---
 

@@ -54,13 +54,23 @@ class VetarisHandler(http.server.SimpleHTTPRequestHandler):
                 return float(obj)
             raise TypeError ("Type %s not serializable" % type(obj))
 
-        self.wfile.write(json.dumps(data, default=json_serial).encode('utf-8'))
+        if not getattr(self, '_head_only', False):
+            self.wfile.write(json.dumps(data, default=json_serial).encode('utf-8'))
 
     def check_admin(self):
         user_session = self.get_current_user()
         if user_session and user_session.get('is_admin'):
             return True
         return False
+
+    def do_HEAD(self):
+        # SimpleHTTPRequestHandler'in kendi do_HEAD'i 'public/' alt dizinini bilmedigi icin
+        # 404 donerdi. do_GET'in ayni yolunu kullan, sadece govdeyi atlama (_head_only).
+        self._head_only = True
+        try:
+            self.do_GET()
+        finally:
+            self._head_only = False
 
     def do_POST(self):
         parsed = urlparse(self.path)
@@ -422,9 +432,10 @@ class VetarisHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_header('Content-Length', str(length))
                 self.send_header('Accept-Ranges', 'bytes')
                 self.end_headers()
-                with open(file_path, 'rb') as f:
-                    f.seek(start)
-                    self.wfile.write(f.read(length))
+                if not getattr(self, '_head_only', False):
+                    with open(file_path, 'rb') as f:
+                        f.seek(start)
+                        self.wfile.write(f.read(length))
             else:
                 self.send_error(400, "Invalid Range header")
         else:
@@ -434,8 +445,9 @@ class VetarisHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header('Content-Length', str(file_size))
             self.send_header('Accept-Ranges', 'bytes')
             self.end_headers()
-            with open(file_path, 'rb') as f:
-                self.wfile.write(f.read())
+            if not getattr(self, '_head_only', False):
+                with open(file_path, 'rb') as f:
+                    self.wfile.write(f.read())
 
     def log_message(self, format, *args):
         # Override to log to console

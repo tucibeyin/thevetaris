@@ -1,13 +1,21 @@
+import os
+from dotenv import load_dotenv
 from src.database import create_user, get_db_connection, init_db
 import psycopg2
+
+load_dotenv()
 
 def seed_admin():
     # Ensure DB is up to date (creates tables/columns if missing)
     init_db()
 
-    email = "admin@vetaris.com"
-    password = "admin" # Change this in production!
-    
+    email = os.getenv("ADMIN_EMAIL")
+    password = os.getenv("ADMIN_PASS")
+
+    if not email or not password:
+        print("❌ ADMIN_EMAIL / ADMIN_PASS .env dosyasinda tanimli degil")
+        return
+
     conn = get_db_connection()
     if not conn:
         print("❌ DB Connection failed")
